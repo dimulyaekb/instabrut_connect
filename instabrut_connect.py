@@ -61,7 +61,7 @@ def verify_token(token: str) -> bool:
         return False
 
 
-def wait_for_login(context, timeout_minutes: int = 15) -> bool:
+def wait_for_login(context, timeout_minutes: int = 60) -> bool:
     """
     Ждёт пока пользователь залогинится в Instagram.
     Проверяет появление cookie sessionid каждые 2 секунды.
@@ -158,8 +158,8 @@ def main():
         help=f'URL сервера (по умолчанию: {SERVER_URL})'
     )
     parser.add_argument(
-        '--timeout', type=int, default=15,
-        help='Таймаут ожидания входа в минутах (по умолчанию: 15)'
+        '--timeout', type=int, default=60,
+        help='Таймаут ожидания входа в минутах (по умолчанию: 60)'
     )
 
     args = parser.parse_args()
