@@ -1,4 +1,4 @@
-name: Build Windows EXE
+name: Build Windows EXE with Playwright
 
 on:
   workflow_dispatch:
@@ -26,11 +26,16 @@ jobs:
         run: |
           playwright install chromium
 
-      - name: Build EXE with PyInstaller
+      - name: Build EXE with embedded browser
         run: |
-          pyinstaller --onefile --name instabrut_connect --hidden-import playwright --hidden-import playwright.sync_api --noconsole instabrut_connect.py
+          pyinstaller --onefile `
+            --name instabrut_connect `
+            --add-data "$env:USERPROFILE\AppData\Local\ms-playwright;playwright\driver" `
+            --hidden-import=playwright `
+            --hidden-import=playwright.sync_api `
+            instabrut_connect.py
 
-      - name: Upload EXE artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: instabrut-win

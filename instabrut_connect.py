@@ -201,6 +201,12 @@ def main():
         input("\nНажмите Enter чтобы закрыть...")
         sys.exit(1)
 
+    # При запуске из PyInstaller-бандла указываем путь к встроенному браузеру
+    if getattr(sys, 'frozen', False):
+        bundled_browsers = os.path.join(sys._MEIPASS, 'playwright', 'driver')
+        if os.path.isdir(bundled_browsers):
+            os.environ['PLAYWRIGHT_BROWSERS_PATH'] = bundled_browsers
+
     # Проверяем что Playwright доступен
     try:
         from playwright.sync_api import sync_playwright
