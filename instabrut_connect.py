@@ -260,7 +260,8 @@ def main():
         browser_ok = False
 
     if not browser_ok:
-        print("\nБраузер Chromium не найден. Устанавливаю (это займёт пару минут)...")
+        print("\nБраузер Chromium не найден. Устанавливаю...")
+        print("   (Это займёт 2-3 минуты, нужно скачать ~170 МБ)")
         import subprocess
         py_exe = _find_python()
         if py_exe is None:
@@ -268,7 +269,26 @@ def main():
             print("   Скачайте Python с python.org и запустите run.bat снова.")
             input("\nНажмите Enter чтобы закрыть...")
             sys.exit(1)
-        # Сбрасываем путь к браузеру — ставим в стандартное место
+
+        # Шаг 1: ставим Playwright в системный Python
+        # (в EXE он уже есть, но системному Python он нужен для команды playwright install)
+        print("   Шаг 1/2: установка Playwright...")
+        result = subprocess.run(
+            [py_exe, '-m', 'pip', 'install', 'playwright'],
+            capture_output=True, text=True
+        )
+        if result.returncode != 0:
+            print(f"   Ошибка установки Playwright: {result.stderr}")
+            print("\n   Попробуйте вручную открыть командную строку и выполнить:")
+            print("   pip install playwright")
+            print("   playwright install chromium")
+            input("\nНажмите Enter чтобы закрыть...")
+            sys.exit(1)
+        print("   Playwright установлен.")
+
+        # Шаг 2: устанавливаем браузер Chromium
+        # Сбрасываем путь к встроенному браузеру — ставим в стандартное место
+        print("   Шаг 2/2: загрузка браузера Chromium...")
         os.environ.pop('PLAYWRIGHT_BROWSERS_PATH', None)
         result = subprocess.run(
             [py_exe, '-m', 'playwright', 'install', 'chromium'],
@@ -276,12 +296,13 @@ def main():
         )
         if result.returncode != 0:
             print(f"   Ошибка установки браузера: {result.stderr}")
-            print(f"   СТАНДАРТНЫЙ ВЫВОД: {result.stdout}")
+            print(f"   Вывод: {result.stdout}")
             print(f"\n   Попробуйте вручную открыть командную строку и выполнить:")
             print(f"   playwright install chromium")
             input("\nНажмите Enter чтобы закрыть...")
             sys.exit(1)
-        print("   Браузер установлен.")
+        print("   Браузер Chromium установлен!")
+        print("   (при следующем запуске эта установка не потребуется)")
 
     temp_dir = tempfile.mkdtemp(prefix='instabrut_')
 

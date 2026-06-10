@@ -29,18 +29,20 @@ jobs:
       - name: Prepare browser directory for bundling
         shell: pwsh
         run: |
-          # Playwright ожидает структуру: playwright/driver/package/.local-browsers/
+          # Playwright ожидает браузеры прямо в корне PLAYWRIGHT_BROWSERS_PATH:
+          #   chromium-1208/chrome-win/chrome.exe
+          #   chromium_headless_shell-1208/...
           $browserSource = "$env:USERPROFILE\AppData\Local\ms-playwright"
-          $bundleDir = "playwright_bundle\package\.local-browsers"
+          $bundleDir = "playwright_bundle"
 
           if (Test-Path $bundleDir) { Remove-Item -Recurse -Force $bundleDir }
           New-Item -ItemType Directory -Force -Path $bundleDir
 
-          # Копируем все браузеры с правильной структурой
+          # Копируем все браузеры прямо в корень (без лишних вложенных папок)
           Copy-Item -Recurse -Force "$browserSource\*" $bundleDir
 
           Write-Host "Browser bundle prepared at: $bundleDir"
-          Get-ChildItem -Recurse $bundleDir | Select-Object -First 20 FullName
+          Get-ChildItem -Recurse -Depth 2 $bundleDir | Select-Object -First 30 FullName
 
       - name: Build EXE with embedded browser
         run: |
