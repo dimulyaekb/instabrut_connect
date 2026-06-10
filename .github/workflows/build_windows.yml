@@ -26,11 +26,27 @@ jobs:
         run: |
           playwright install chromium
 
+      - name: Prepare browser directory for bundling
+        shell: pwsh
+        run: |
+          # Playwright ожидает структуру: playwright/driver/package/.local-browsers/
+          $browserSource = "$env:USERPROFILE\AppData\Local\ms-playwright"
+          $bundleDir = "playwright_bundle\package\.local-browsers"
+
+          if (Test-Path $bundleDir) { Remove-Item -Recurse -Force $bundleDir }
+          New-Item -ItemType Directory -Force -Path $bundleDir
+
+          # Копируем все браузеры с правильной структурой
+          Copy-Item -Recurse -Force "$browserSource\*" $bundleDir
+
+          Write-Host "Browser bundle prepared at: $bundleDir"
+          Get-ChildItem -Recurse $bundleDir | Select-Object -First 20 FullName
+
       - name: Build EXE with embedded browser
         run: |
           pyinstaller --onefile `
             --name instabrut_connect `
-            --add-data "$env:USERPROFILE\AppData\Local\ms-playwright;playwright\driver" `
+            --add-data "playwright_bundle;playwright\driver" `
             --hidden-import=playwright `
             --hidden-import=playwright.sync_api `
             instabrut_connect.py
@@ -40,3 +56,21 @@ jobs:
         with:
           name: instabrut-win
           path: dist/instabrut_connect.exe
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: instabrut-win
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: instabrut_connect.exe
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -206,18 +206,43 @@ def main():
         bundled_browsers = os.path.join(sys._MEIPASS, 'playwright', 'driver')
         if os.path.isdir(bundled_browsers):
             os.environ['PLAYWRIGHT_BROWSERS_PATH'] = bundled_browsers
+            print(f"   Встроенный браузер: {bundled_browsers}")
 
-    # Проверяем что Playwright доступен
+    # Проверяем что Playwright доступен, если нет — устанавливаем
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
-        print("\nPlaywright не установлен.")
-        print("\nУстановите Playwright (требуется один раз):")
-        print("  pip install playwright")
-        print("  playwright install chromium")
-        print()
-        input("Нажмите Enter чтобы закрыть...")
-        sys.exit(1)
+        print("\nPlaywright не установлен. Устанавливаю...")
+        import subprocess
+        result = subprocess.run(
+            [sys.executable, '-m', 'pip', 'install', 'playwright'],
+            capture_output=True, text=True
+        )
+        if result.returncode != 0:
+            print(f"   Ошибка установки Playwright: {result.stderr}")
+            input("\nНажмите Enter чтобы закрыть...")
+            sys.exit(1)
+        print("   Playwright установлен.")
+        from playwright.sync_api import sync_playwright
+
+    # Проверяем что браузер Chromium установлен
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            browser.close()
+    except Exception:
+        print("\nБраузер Chromium не найден. Устанавливаю (это займёт пару минут)...")
+        import subprocess
+        result = subprocess.run(
+            [sys.executable, '-m', 'playwright', 'install', 'chromium'],
+            capture_output=True, text=True
+        )
+        if result.returncode != 0:
+            print(f"   Ошибка установки браузера: {result.stderr}")
+            print("\nПопробуйте вручную: playwright install chromium")
+            input("\nНажмите Enter чтобы закрыть...")
+            sys.exit(1)
+        print("   Браузер установлен.")
 
     temp_dir = tempfile.mkdtemp(prefix='instabrut_')
 
