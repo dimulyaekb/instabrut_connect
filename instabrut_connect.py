@@ -63,23 +63,51 @@ def verify_token(token: str) -> bool:
 
 def wait_for_login(context, timeout_minutes: int = 60) -> bool:
     """
-    Ждёт пока пользователь залогинится в Instagram.
-    Проверяет появление cookie sessionid каждые 2 секунды.
+    Ждёт пока пользователь ЗАВЕРШИТ вход в Instagram.
+
+    ВАЖНО: проверяем НЕ просто наличие sessionid (Instagram ставит
+    временный sessionid даже на странице входа и QR-кода), а наличие
+    ОДНОВРЕМЕННО sessionid + ds_user_id. ds_user_id появляется
+    ТОЛЬКО после успешного входа в аккаунт.
     """
     print("\nОжидание входа в Instagram...")
     print("   Войдите в свой аккаунт в открывшемся окне браузера.")
     print(f"   Таймаут: {timeout_minutes} минут.\n")
+    print("   ⚠️  Если Instagram запросил QR-код — отсканируйте его")
+    print("       телефоном и подтвердите вход. Без этого сессия")
+    print("       НЕ будет считаться выполненной.\n")
 
     deadline = time.time() + timeout_minutes * 60
     last_report = 0
+    warned_partial = False  # уже предупредили про неполный вход?
 
     while time.time() < deadline:
         cookies = context.cookies()
+        has_sessionid = False
+        has_user_id = False
+
         for cookie in cookies:
-            if cookie.get('name') == 'sessionid' and cookie.get('value'):
-                print(f"\nВход обнаружен! (sessionid найден)")
-                time.sleep(3)
-                return True
+            name = cookie.get('name', '')
+            value = cookie.get('value', '')
+            if name == 'sessionid' and value:
+                has_sessionid = True
+            if name == 'ds_user_id' and value:
+                has_user_id = True
+
+        # Настоящий вход: есть И sessionid, И ds_user_id
+        if has_sessionid and has_user_id:
+            print(f"\n✅ Вход подтверждён! (sessionid + ds_user_id найдены)")
+            time.sleep(2)
+            return True
+
+        # Обнаружен sessionid но нет ds_user_id — пользователь ещё
+        # не завершил вход (например, висит на странице QR-кода)
+        if has_sessionid and not has_user_id and not warned_partial:
+            print("\n   ⚠️  Обнаружен временный ключ Instagram, но вход ещё НЕ завершён.")
+            print("   Это бывает когда Instagram показывает QR-код или запрос проверки.")
+            print("   Пожалуйста, завершите вход (отсканируйте QR, введите код).")
+            print("   Я продолжаю ждать...\n")
+            warned_partial = True
 
         remaining = max(0, int(deadline - time.time()))
         if time.time() - last_report >= 10:
@@ -89,7 +117,7 @@ def wait_for_login(context, timeout_minutes: int = 60) -> bool:
             last_report = time.time()
         time.sleep(2)
 
-    print("\nТаймаут ожидания входа.")
+    print("\n⏰ Таймаут ожидания входа.")
     return False
 
 
@@ -332,12 +360,17 @@ def main():
             page.goto('https://www.instagram.com/', wait_until='domcontentloaded')
             time.sleep(1)
 
-            # Проверяем, не залогинен ли уже
+            # Проверяем, не залогинен ли уже (нужны ОБА ключа)
             cookies = context.cookies()
-            already_logged_in = any(
+            has_sessionid = any(
                 c.get('name') == 'sessionid' and c.get('value')
                 for c in cookies
             )
+            has_user_id = any(
+                c.get('name') == 'ds_user_id' and c.get('value')
+                for c in cookies
+            )
+            already_logged_in = has_sessionid and has_user_id
 
             if already_logged_in:
                 print("Уже выполнен вход в Instagram!")
