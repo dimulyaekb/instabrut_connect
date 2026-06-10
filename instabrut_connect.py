@@ -202,11 +202,28 @@ def main():
         sys.exit(1)
 
     # При запуске из PyInstaller-бандла указываем путь к встроенному браузеру
-    if getattr(sys, 'frozen', False):
+    is_frozen = getattr(sys, 'frozen', False)
+    if is_frozen:
         bundled_browsers = os.path.join(sys._MEIPASS, 'playwright', 'driver')
         if os.path.isdir(bundled_browsers):
             os.environ['PLAYWRIGHT_BROWSERS_PATH'] = bundled_browsers
             print(f"   Встроенный браузер: {bundled_browsers}")
+
+    # Вспомогательная функция: найти рабочий Python (не сам EXE)
+    def _find_python():
+        """Возвращает путь к python или 'python' если не найден."""
+        if not is_frozen:
+            return sys.executable
+        # В EXE sys.executable — это сам EXE, ищем системный Python
+        for cmd in ['python', 'python3', 'py']:
+            import subprocess as _sp
+            try:
+                result = _sp.run([cmd, '--version'], capture_output=True, timeout=5)
+                if result.returncode == 0:
+                    return cmd
+            except Exception:
+                pass
+        return None
 
     # Проверяем что Playwright доступен, если нет — устанавливаем
     try:
@@ -214,32 +231,54 @@ def main():
     except ImportError:
         print("\nPlaywright не установлен. Устанавливаю...")
         import subprocess
+        py_exe = _find_python()
+        if py_exe is None:
+            print("   Python не найден на компьютере.")
+            print("   Скачайте Python с python.org и запустите run.bat снова.")
+            input("\nНажмите Enter чтобы закрыть...")
+            sys.exit(1)
         result = subprocess.run(
-            [sys.executable, '-m', 'pip', 'install', 'playwright'],
+            [py_exe, '-m', 'pip', 'install', 'playwright'],
             capture_output=True, text=True
         )
         if result.returncode != 0:
-            print(f"   Ошибка установки Playwright: {result.stderr}")
+            print(f"   Ошибка установки: {result.stderr}")
+            print("   Попробуйте вручную: pip install playwright")
             input("\nНажмите Enter чтобы закрыть...")
             sys.exit(1)
         print("   Playwright установлен.")
         from playwright.sync_api import sync_playwright
 
     # Проверяем что браузер Chromium установлен
+    browser_ok = False
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             browser.close()
+            browser_ok = True
     except Exception:
+        browser_ok = False
+
+    if not browser_ok:
         print("\nБраузер Chromium не найден. Устанавливаю (это займёт пару минут)...")
         import subprocess
+        py_exe = _find_python()
+        if py_exe is None:
+            print("   Python не найден на компьютере.")
+            print("   Скачайте Python с python.org и запустите run.bat снова.")
+            input("\nНажмите Enter чтобы закрыть...")
+            sys.exit(1)
+        # Сбрасываем путь к браузеру — ставим в стандартное место
+        os.environ.pop('PLAYWRIGHT_BROWSERS_PATH', None)
         result = subprocess.run(
-            [sys.executable, '-m', 'playwright', 'install', 'chromium'],
+            [py_exe, '-m', 'playwright', 'install', 'chromium'],
             capture_output=True, text=True
         )
         if result.returncode != 0:
             print(f"   Ошибка установки браузера: {result.stderr}")
-            print("\nПопробуйте вручную: playwright install chromium")
+            print(f"   СТАНДАРТНЫЙ ВЫВОД: {result.stdout}")
+            print(f"\n   Попробуйте вручную открыть командную строку и выполнить:")
+            print(f"   playwright install chromium")
             input("\nНажмите Enter чтобы закрыть...")
             sys.exit(1)
         print("   Браузер установлен.")

@@ -22,9 +22,9 @@ jobs:
         run: |
           pip install playwright pyinstaller
 
-      - name: Install Playwright browser
+      - name: Install Playwright browsers (headed + headless)
         run: |
-          playwright install chromium
+          playwright install chromium chromium-headless-shell
 
       - name: Prepare browser directory for bundling
         shell: pwsh
